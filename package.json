@@ -1,0 +1,28 @@
+{
+  "name": "codeorbit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ingest any public GitHub repo and produce an interactive, LLM-assisted guided tour of the codebase.",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @codeorbit/web dev",
+    "dev:api": "pnpm --filter @codeorbit/api dev",
+    "dev:worker": "pnpm --filter @codeorbit/worker dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push"
+  },
+  "devDependencies": {
+    "prisma": "^6.1.0",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3"
+  }
+}

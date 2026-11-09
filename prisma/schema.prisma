@@ -1,0 +1,239 @@
+// CodeOrbit canonical data model (spec §6).
+// Language-independent graph tables: generic nodes/edges with a `type`.
+// Requires the pgvector extension for the chatbot's embeddings.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model Repo {
+  id              String   @id @default(uuid()) @db.Uuid
+  owner           String
+  name            String
+  defaultBranch   String?  @map("default_branch")
+  githubStars     Int?     @map("github_stars")
+  sizeKb          Int?     @map("size_kb")
+  license         String?
+  primaryLanguage String?  @map("primary_language")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  jobs Job[]
+
+  @@unique([owner, name])
+  @@map("repos")
+}
+
+enum JobStatus {
+  queued
+  cloning
+  parsing
+  graphing
+  metrics
+  llm
+  complete
+  failed
+}
+
+model Job {
+  id          String     @id @default(uuid()) @db.Uuid
+  repoId      String     @map("repo_id") @db.Uuid
+  commitSha   String?    @map("commit_sha")
+  status      JobStatus  @default(queued)
+  stage       String?
+  progressPct Int        @default(0) @map("progress_pct")
+  error       String?
+  llmEnabled  Boolean    @default(true) @map("llm_enabled")
+  startedAt   DateTime   @default(now()) @map("started_at")
+  finishedAt  DateTime?  @map("finished_at")
+
+  repo          Repo           @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  files         File[]
+  graphNodes    GraphNode[]
+  graphEdges    GraphEdge[]
+  modules       Module[]
+  repoSummary   RepoSummary?
+  chatSessions  ChatSession[]
+  codeChunks    CodeChunk[]
+  codeTodos     CodeTodo[]
+
+  @@index([repoId])
+  @@map("jobs")
+}
+
+model File {
+  id           String   @id @default(uuid()) @db.Uuid
+  jobId        String   @map("job_id") @db.Uuid
+  path         String
+  language     String?
+  tier         String?  // A | B | C (analysis depth achieved)
+  loc          Int      @default(0)
+  complexity   Int      @default(0)
+  churn        Int?
+  fanIn        Int      @default(0) @map("fan_in")
+  fanOut       Int      @default(0) @map("fan_out")
+  hotspotScore Float    @default(0) @map("hotspot_score")
+  startScore   Float    @default(0) @map("start_score")
+  summary      String?
+  summaryHash  String?  @map("summary_hash")
+  /// explicit CODEOWNERS owners for this path, e.g. ["@team/api"]
+  owners       Json?
+  /// top git authors over the analysed history: [{ name, commits }]
+  authors      Json?
+  lastModified DateTime? @map("last_modified")
+
+  job        Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  graphNodes GraphNode[]
+  codeChunks CodeChunk[]
+
+  @@index([jobId, startScore(sort: Desc)])
+  @@index([jobId, hotspotScore(sort: Desc)])
+  @@map("files")
+}
+
+model GraphNode {
+  id        String  @id @default(uuid()) @db.Uuid
+  jobId     String  @map("job_id") @db.Uuid
+  nodeType  String  @map("node_type") // file | module | symbol | external_package
+  refId     String? @map("ref_id") @db.Uuid
+  label     String
+  clusterId String? @map("cluster_id")
+  meta      Json?
+
+  job      Job         @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  file     File?       @relation(fields: [refId], references: [id], onDelete: SetNull)
+  outEdges GraphEdge[] @relation("srcNode")
+  inEdges  GraphEdge[] @relation("dstNode")
+
+  @@index([jobId])
+  @@map("graph_nodes")
+}
+
+model GraphEdge {
+  id        String @id @default(uuid()) @db.Uuid
+  jobId     String @map("job_id") @db.Uuid
+  srcNodeId String @map("src_node_id") @db.Uuid
+  dstNodeId String @map("dst_node_id") @db.Uuid
+  edgeType  String @map("edge_type") // import | call | contains
+  weight    Int    @default(1)
+  /// provenance: "exact" (resolved import / same-file call) or "name_match" (cross-file call guessed by name)
+  resolution String? 
+
+  job Job       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  src GraphNode @relation("srcNode", fields: [srcNodeId], references: [id], onDelete: Cascade)
+  dst GraphNode @relation("dstNode", fields: [dstNodeId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, srcNodeId])
+  @@index([jobId, dstNodeId])
+  @@map("graph_edges")
+}
+
+model Module {
+  id        String  @id @default(uuid()) @db.Uuid
+  jobId     String  @map("job_id") @db.Uuid
+  clusterId String  @map("cluster_id")
+  label     String
+  summary   String?
+  fileCount Int     @default(0) @map("file_count")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("modules")
+}
+
+model RepoSummary {
+  jobId        String @id @map("job_id") @db.Uuid
+  overview     String?
+  /// guided tour: [{ title, description, files[] }]
+  readingOrder Json    @map("reading_order")
+  mentalModel  String? @map("mental_model")
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@map("repo_summaries")
+}
+
+model ChatSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  jobId     String   @map("job_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  job      Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([jobId])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid()) @db.Uuid
+  sessionId String   @map("session_id") @db.Uuid
+  role      String   // user | assistant
+  content   String
+  citations Json?    // [{ path, startLine, endLine }]
+  createdAt DateTime @default(now()) @map("created_at")
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("chat_messages")
+}
+
+model CodeChunk {
+  id        String                      @id @default(uuid()) @db.Uuid
+  jobId     String                      @map("job_id") @db.Uuid
+  fileId    String?                     @map("file_id") @db.Uuid
+  chunkType String                      @map("chunk_type") // symbol | window | file_summary | module_summary
+  symbol    String?
+  startLine Int?                        @map("start_line")
+  endLine   Int?                        @map("end_line")
+  content   String
+  embedding Unsupported("vector(768)")?
+
+  job  Job   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  file File? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([jobId])
+  @@map("code_chunks")
+}
+
+model LlmCache {
+  summaryHash String   @id @map("summary_hash")
+  summary     String
+  model       String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("llm_cache")
+}
+
+/// Content-hash keyed embeddings, so re-analysing a newer commit only embeds changed chunks.
+model EmbeddingCache {
+  contentHash String                     @id @map("content_hash")
+  model       String
+  embedding   Unsupported("vector(768)")
+  createdAt   DateTime                   @default(now()) @map("created_at")
+
+  @@map("embedding_cache")
+}
+
+/// TODO / FIXME / HACK markers found in the code — contribution opportunities.
+model CodeTodo {
+  id    String @id @default(uuid()) @db.Uuid
+  jobId String @map("job_id") @db.Uuid
+  path  String
+  line  Int
+  tag   String
+  text  String
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("code_todos")
+}

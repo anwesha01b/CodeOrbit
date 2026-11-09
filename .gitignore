@@ -1,0 +1,39 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# prisma
+prisma/*.db
+
+# logs
+*.log
+logs/
+
+# worker scratch (cloned repos)
+.workspaces/
+tmp/
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# misc
+coverage/
+Claude outputs/
+
+# installed AI skills (reinstall from skills-lock.json) and tool history
+.agents/
+.claude/skills/
+.taste-skill/

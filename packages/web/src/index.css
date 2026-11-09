@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    @apply bg-canvas text-fg-2 antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-fg;
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: #a1ffcb;
+    color: #18181b;
+  }
+
+  :focus-visible {
+    outline: 2px solid #0a7d55;
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #e4e4e0;
+    border-radius: 6px;
+    border: 2px solid #ffffff;
+  }
+}
+
+@layer components {
+  .container-rl {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+
+  .card {
+    @apply rounded-lg border border-line bg-surface shadow-card;
+  }
+
+  /* linked card: lifts 2px, border firms up */
+  .card-link {
+    @apply transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lift;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded border border-line px-2.5 py-1 text-xs font-medium;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[12px] font-medium uppercase tracking-[0.08em] text-subtle;
+  }
+
+  /* one button pair: ink primary, outlined secondary; both step on hover and press on click */
+  .btn-primary {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-fg px-4 py-2.5 text-sm font-medium text-white
+      transition-[transform,background-color] duration-150 ease-out hover:-translate-y-px hover:bg-[#2c2c31] active:translate-y-0 active:scale-[0.98]
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas
+      disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-line bg-surface px-4 py-2.5
+      text-sm font-medium text-fg transition-[transform,background-color,border-color] duration-150 ease-out
+      hover:-translate-y-px hover:border-line-strong hover:bg-sunken active:translate-y-0 active:scale-[0.98];
+  }
+
+  /* underline that draws on hover */
+  .link-draw {
+    @apply bg-[length:0%_1px] bg-left-bottom bg-no-repeat transition-[background-size,color] duration-200 hover:bg-[length:100%_1px] hover:text-fg;
+    background-image: linear-gradient(currentColor, currentColor);
+  }
+
+  /* quiet dotted grid for graph canvases and the hero frame */
+  .grid-backdrop {
+    background-image: radial-gradient(rgba(24, 24, 27, 0.07) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+}
+
+/* signals running along highlighted graph links (3 s loop) */
+.pulse-line {
+  animation: pulse-line 3s linear infinite;
+}
+@keyframes pulse-line {
+  from {
+    stroke-dashoffset: 27;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.shimmer-track {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-track::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: shimmer 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* horizontally scrollable strips (tab bars) without a visible scrollbar */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

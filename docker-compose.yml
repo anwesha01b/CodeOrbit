@@ -1,0 +1,23 @@
+# Local dev stack. Only Postgres+pgvector is required to start;
+# pg-boss creates its own tables inside this same database on boot (no Redis).
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: codeorbit-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: codeorbit
+      POSTGRES_PASSWORD: codeorbit
+      POSTGRES_DB: codeorbit
+    ports:
+      - "5432:5432"
+    volumes:
+      - codeorbit-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codeorbit -d codeorbit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  codeorbit-pgdata:

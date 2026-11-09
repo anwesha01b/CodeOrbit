@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+!.env.example
+.agents
+.claude
+.taste-skill
+Claude outputs
+.workspaces
+*.log

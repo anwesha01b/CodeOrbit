@@ -1,5 +1,9 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import fastifyStatic from "@fastify/static";
 import {
   analyzeRequestSchema,
   type AnalyzeResponse,
@@ -35,7 +39,8 @@ import { parseRepoUrl, validateRepo } from "./github.js";
 import { retrieve } from "./retrieval.js";
 import { EXAMPLE_REPOS } from "./examples.js";
 
-const app = Fastify({ logger: { transport: { target: "pino-pretty" } } });
+// pretty logs locally, plain JSON in production (what log viewers expect)
+const app = Fastify({ logger: process.env.NODE_ENV === "production" ? true : { transport: { target: "pino-pretty" } } });
 await app.register(cors, { origin: env.webOrigin });
 
 app.get("/health", async () => ({ status: "ok", ts: new Date().toISOString() }));
@@ -619,6 +624,19 @@ app.get<{ Params: { id: string; sessionId: string } }>(
     return dto;
   },
 );
+
+// Production: serve the built web app from the same origin, so `/api` calls and SSE need no proxy.
+const WEB_DIST = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+if (existsSync(path.join(WEB_DIST, "index.html"))) {
+  await app.register(fastifyStatic, { root: WEB_DIST, wildcard: false });
+  // client-side routes (/r/:id, /analyzing/:id) fall back to the app shell
+  app.setNotFoundHandler((req, reply) =>
+    req.url.startsWith("/api/") || req.method !== "GET"
+      ? reply.status(404).send({ error: "Not found" })
+      : reply.sendFile("index.html"),
+  );
+  app.log.info(`Serving web app from ${WEB_DIST}`);
+}
 
 app
   .listen({ port: env.port, host: "0.0.0.0" })

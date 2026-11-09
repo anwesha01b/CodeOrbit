@@ -12,6 +12,7 @@
     "dev:api": "pnpm --filter @codeorbit/api dev",
     "dev:worker": "pnpm --filter @codeorbit/worker dev",
     "build": "pnpm -r build",
+    "start": "node scripts/start.mjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "db:generate": "prisma generate",

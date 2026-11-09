@@ -127,6 +127,8 @@ async function loadJob(id: string): Promise<JobStatus | null> {
     error: job.error,
     owner: job.repo.owner,
     name: job.repo.name,
+    commitSha: job.commitSha,
+    defaultBranch: job.repo.defaultBranch,
   };
 }
 
@@ -393,13 +395,19 @@ app.get<{ Params: { id: string }; Querystring: GraphQuery }>("/api/jobs/:id/grap
     const shown = modules.filter((m) => isVisible(moduleKind(m.clusterId), q));
     const shownIds = new Set(shown.map((m) => m.clusterId));
     const clusterOf = new Map(fileNodes.map((n) => [n.id, n.clusterId]));
+    const labelOf = new Map(fileNodes.map((n) => [n.id, n.label]));
     const moduleEdges = new Map<string, number>();
+    // the file-level imports behind each module arrow, so the UI can explain why the arrow exists
+    const edgeFiles = new Map<string, { from: string; to: string; weight: number }[]>();
     for (const e of rawEdges) {
       const a = clusterOf.get(e.srcNodeId);
       const b = clusterOf.get(e.dstNodeId);
       if (a && b && a !== b && shownIds.has(a) && shownIds.has(b)) {
         const k = `${a}\u0000${b}`;
         moduleEdges.set(k, (moduleEdges.get(k) ?? 0) + e.weight);
+        const from = labelOf.get(e.srcNodeId);
+        const to = labelOf.get(e.dstNodeId);
+        if (from && to) edgeFiles.set(k, [...(edgeFiles.get(k) ?? []), { from, to, weight: e.weight }]);
       }
     }
     const nodes: GraphNodeDTO[] = shown.map((m) => ({
@@ -417,7 +425,8 @@ app.get<{ Params: { id: string }; Querystring: GraphQuery }>("/api/jobs/:id/grap
     }));
     const edges: GraphEdgeDTO[] = [...moduleEdges].map(([k, w], i) => {
       const [source, target] = k.split("\u0000");
-      return { id: `m${i}`, source, target, type: "import" as GraphEdgeType, weight: w };
+      const examples = (edgeFiles.get(k) ?? []).sort((x, y) => y.weight - x.weight).slice(0, 8);
+      return { id: `m${i}`, source, target, type: "import" as GraphEdgeType, weight: w, examples };
     });
     const dto: GraphDTO = { type: "architecture", nodes, edges, truncated: false };
     return dto;

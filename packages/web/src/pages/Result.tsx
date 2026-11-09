@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Folder, FileCode2, ArrowLeft, Loader2, FolderTree, Network, LayoutGrid, Boxes, MessageSquare, GitFork, GitPullRequest } from "lucide-react";
+import { Folder, FileCode2, ArrowLeft, Loader2, FolderTree, Network, LayoutGrid, Boxes, MessageSquare, GitFork, GitPullRequest, GraduationCap } from "lucide-react";
+import { CodeDrawerProvider, useOpenCode } from "../components/CodeDrawer";
+import { DetailProvider, useDetail } from "../lib/detail";
 import { ContributeView } from "../components/ContributeView";
 import type { FileEntry } from "@codeorbit/shared";
 import { Wordmark } from "../components/Logo";
@@ -26,7 +28,7 @@ function heatColor(score: number, max: number): string | null {
 interface Dir {
   name: string;
   dirs: Map<string, Dir>;
-  files: FileEntry[];
+  files: (FileEntry & { full: string })[];
   loc: number;
 }
 
@@ -42,12 +44,13 @@ function buildTree(files: FileEntry[]): Dir {
       node = node.dirs.get(seg)!;
       node.loc += f.loc;
     }
-    node.files.push({ ...f, path: parts[parts.length - 1] });
+    node.files.push({ ...f, full: f.path, path: parts[parts.length - 1] });
   }
   return root;
 }
 
 function DirView({ dir, depth, maxHot }: { dir: Dir; depth: number; maxHot: number }) {
+  const openCode = useOpenCode();
   const dirs = [...dir.dirs.values()].sort((a, b) => a.name.localeCompare(b.name));
   const files = [...dir.files].sort((a, b) => a.path.localeCompare(b.path));
   return (
@@ -70,9 +73,11 @@ function DirView({ dir, depth, maxHot }: { dir: Dir; depth: number; maxHot: numb
       {files.map((f) => {
         const hc = heatColor(f.hotspotScore, maxHot);
         return (
-        <div
+        <button
           key={f.path}
-          className="flex items-center gap-2 rounded px-2 py-1.5 font-mono text-[13px] text-muted hover:bg-sunken"
+          onClick={() => openCode({ path: f.full })}
+          title={`Read ${f.full}`}
+          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left font-mono text-[13px] text-muted hover:bg-sunken hover:text-fg"
           style={{ paddingLeft: 8 + depth * 16 + 15 }}
         >
           <FileCode2 size={13} className="shrink-0 text-subtle" />
@@ -96,7 +101,7 @@ function DirView({ dir, depth, maxHot }: { dir: Dir; depth: number; maxHot: numb
           >
             {f.loc.toLocaleString()}
           </span>
-        </div>
+        </button>
         );
       })}
     </>
@@ -110,6 +115,7 @@ export function Result() {
   const view: View = VIEWS.includes(params.get("tab") as View) ? (params.get("tab") as View) : "overview";
   const setView = (v: View) => setParams(v === "overview" ? {} : { tab: v }, { replace: true });
   const [chatOpen, setChatOpen] = useState(false);
+  const openFromChat = useRef<((t: { path: string; line?: number; title?: string }) => void) | null>(null);
   const { data, isLoading, error } = useQuery({
     queryKey: ["tree", jobId],
     queryFn: () => fetchTree(jobId!),
@@ -131,6 +137,8 @@ export function Result() {
   );
 
   return (
+    <DetailProvider>
+    <CodeDrawerProvider jobId={jobId!}>
     <div className="min-h-screen bg-canvas">
       <header className="sticky top-0 z-10 border-b border-line bg-canvas/80 backdrop-blur-xl">
         <div className="container-rl flex h-16 items-center justify-between">
@@ -138,6 +146,7 @@ export function Result() {
             <Wordmark />
           </Link>
           <div className="flex items-center gap-2">
+            <BeginnerSwitch />
             <button onClick={() => setChatOpen(true)} className="btn-primary h-9 whitespace-nowrap px-3 py-0" aria-label="Ask the repo">
               <MessageSquare size={15} /> <span className="hidden sm:inline">Ask the repo</span>
             </button>
@@ -231,12 +240,40 @@ export function Result() {
         open={chatOpen}
         onClose={() => setChatOpen(false)}
         notice={chatNotice}
-        onCitation={() => {
-          setView("files");
+        onCitation={(path, line) => {
           setChatOpen(false);
+          openFromChat.current?.({ path, line: line || undefined, title: "Cited in the answer" });
         }}
       />
+      <CodeBridge into={openFromChat} />
     </div>
+    </CodeDrawerProvider>
+    </DetailProvider>
+  );
+}
+
+/** lets the page (outside the provider) open code: the provider exposes its opener through a ref */
+function CodeBridge({ into }: { into: React.MutableRefObject<((t: { path: string; line?: number; title?: string }) => void) | null> }) {
+  into.current = useOpenCode();
+  return null;
+}
+
+function BeginnerSwitch() {
+  const { beginner, setBeginner } = useDetail();
+  return (
+    <button
+      role="switch"
+      aria-checked={beginner}
+      onClick={() => setBeginner(!beginner)}
+      title={beginner ? "Explanations are on. Turn off for a quieter view." : "Explanations are off. Turn on for plain-English help."}
+      className="hidden h-9 items-center gap-2 rounded-md border border-line px-2.5 text-[12.5px] text-fg-2 transition-colors hover:border-line-strong md:flex"
+    >
+      <GraduationCap size={14} aria-hidden />
+      Beginner mode
+      <span className={`relative h-4 w-7 rounded-full transition-colors ${beginner ? "bg-fg" : "bg-line-strong"}`}>
+        <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-[left] ${beginner ? "left-[14px]" : "left-0.5"}`} />
+      </span>
+    </button>
   );
 }
 

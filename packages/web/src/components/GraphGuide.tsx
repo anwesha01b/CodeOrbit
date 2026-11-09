@@ -2,12 +2,14 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown, HelpCircle } from "lucide-react";
 import type { Layer } from "@codeorbit/shared";
 import { LAYER_COLOR, LAYER_HINT, LAYER_ORDER } from "../lib/graphColors";
+import { useDetail } from "../lib/detail";
 
-function readOpen(key: string): boolean {
+function readOpen(key: string, beginner: boolean): boolean {
   try {
-    return localStorage.getItem(`guide:${key}`) !== "closed";
+    const v = localStorage.getItem(`guide:${key}`);
+    return v ? v !== "closed" : beginner;
   } catch {
-    return true;
+    return beginner;
   }
 }
 
@@ -26,7 +28,8 @@ export function GraphGuide({
   layers: Layer[];
   extra?: ReactNode;
 }) {
-  const [open, setOpen] = useState(() => readOpen(id));
+  const { beginner } = useDetail();
+  const [open, setOpen] = useState(() => readOpen(id, beginner));
   const toggle = () => {
     setOpen((o) => {
       try {

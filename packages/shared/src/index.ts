@@ -119,6 +119,9 @@ export interface JobStatus {
   error: string | null;
   owner: string;
   name: string;
+  /** the exact commit analysed, so the UI can show code as it was (falls back to the branch) */
+  commitSha?: string | null;
+  defaultBranch?: string | null;
 }
 
 /** Shape of a single SSE progress event on /api/jobs/:id/events. */
@@ -158,6 +161,8 @@ export interface GraphEdgeDTO {
   target: string;
   type: GraphEdgeType;
   weight: number;
+  /** module edges: the file-level imports behind this arrow (heaviest first, capped) */
+  examples?: { from: string; to: string; weight: number }[];
 }
 
 export interface GraphDTO {

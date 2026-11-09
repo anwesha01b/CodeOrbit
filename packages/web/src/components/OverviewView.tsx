@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Route, Flame, Code2, Boxes, Layers, Loader2, BookOpen, Sparkles, type LucideIcon } from "lucide-react";
+import { Route, Flame, Code2, Boxes, Layers, Loader2, BookOpen, Sparkles, Network, FileCode2, type LucideIcon } from "lucide-react";
+import { useOpenCode } from "./CodeDrawer";
 import type { TourStep } from "@codeorbit/shared";
 import { fetchOverview, analyzeRepo } from "../lib/api";
 import { LANGUAGE_DOT } from "../data/exampleRepos";
@@ -159,6 +160,8 @@ export function OverviewView({ jobId }: { jobId: string }) {
 function GuidedTour({ steps }: { steps: TourStep[] }) {
   const [active, setActive] = useState(0);
   const step = steps[active];
+  const openCode = useOpenCode();
+  const [, setParams] = useSearchParams();
   return (
     <div className="card p-5">
       <div className="mb-4 flex items-center gap-2.5">
@@ -195,8 +198,15 @@ function GuidedTour({ steps }: { steps: TourStep[] }) {
           <p className="mt-1.5 text-sm leading-relaxed text-fg-2">{step.description}</p>
           <ul className="mt-3 space-y-1">
             {step.files.map((f) => (
-              <li key={f} className="truncate font-mono text-[12.5px] text-fg" title={f}>
-                {f}
+              <li key={f}>
+                <button
+                  onClick={() => openCode({ path: f, title: `Tour stop ${active + 1}: ${step.title}` })}
+                  className="group flex w-full items-center gap-2 rounded px-1 py-0.5 text-left font-mono text-[12.5px] text-fg hover:bg-black/[0.04]"
+                  title={`Read ${f}`}
+                >
+                  <FileCode2 size={13} className="shrink-0 text-subtle group-hover:text-fg" aria-hidden />
+                  <span className="truncate">{f}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -215,6 +225,14 @@ function GuidedTour({ steps }: { steps: TourStep[] }) {
             >
               Next stop
             </button>
+            {step.files[0] && (
+              <button
+                onClick={() => setParams({ tab: "deps", focus: step.files[0] })}
+                className="ml-auto flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-xs text-fg-2 hover:border-line-strong hover:text-fg"
+              >
+                <Network size={12} aria-hidden /> Show on the map
+              </button>
+            )}
           </div>
         </div>
       </div>

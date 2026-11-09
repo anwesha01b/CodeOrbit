@@ -26,7 +26,7 @@ export function ChatDrawer({
   jobId: string;
   open: boolean;
   onClose: () => void;
-  onCitation: (path: string) => void;
+  onCitation: (path: string, line?: number) => void;
   /** shown above the conversation, e.g. when the analysis has no AI index */
   notice?: React.ReactNode;
 }) {
@@ -142,9 +142,9 @@ export function ChatDrawer({
                     {m.citations.map((c, j) => (
                       <button
                         key={j}
-                        onClick={() => onCitation(c.path)}
+                        onClick={() => onCitation(c.path, c.startLine)}
                         className="rounded border border-accent/30 bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-accent-soft transition-colors hover:bg-accent/20"
-                        title="Show file"
+                        title="Read this code"
                       >
                         {c.path}
                         {c.startLine ? `:${c.startLine}` : ""}
